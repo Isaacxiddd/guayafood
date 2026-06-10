@@ -9,8 +9,8 @@ export const SITE = {
   ogDescription: 'Desde mi cocina, para tu corazón. Comida venezolana casera en Buenos Aires.',
   year: 2025,
   location: 'Buenos Aires, Argentina',
-  instagram: '@guayafood.ba',
-  instagramUrl: 'https://instagram.com/guayafood.ba',
+  instagram: '@guayafoodba',
+  instagramUrl: 'https://instagram.com/guayafoodba',
 };
 
 export const WHATSAPP = {
