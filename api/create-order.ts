@@ -1,8 +1,7 @@
+import { MercadoPagoConfig, Preference } from 'mercadopago';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const ADVANCE_HOURS = parseInt(process.env.PUBLIC_ADVANCE_HOURS || '24', 10);
-const WORKING_DAYS = [1, 2, 3, 4, 5, 6];
-const DEFAULT_EMAIL = 'cliente@guayafood.com';
 
 function validateDeliveryDate(dateStr: string): string | null {
   if (!dateStr) return 'Falta la fecha de entrega.';
@@ -103,69 +102,35 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   try {
-    const totalAmount = body.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+    const client = new MercadoPagoConfig({ accessToken });
+    const preference = new Preference(client);
 
-    const orderPayload = {
-      type: 'online',
-      processing_mode: 'automatic',
-      total_amount: totalAmount,
-      items: body.items.map((i) => ({
-        title: `${i.title} x${i.quantity}`,
-        unit_price: i.unitPrice * i.quantity,
-        quantity: 1,
-      })),
-      payer: {
-        email: DEFAULT_EMAIL,
-        name: body.customer.name,
-        phone: { number: body.customer.phone },
+    const result = await preference.create({
+      body: {
+        items: body.items.map((i) => ({
+          title: i.title,
+          quantity: i.quantity,
+          unit_price: i.unitPrice,
+          currency_id: 'ARS',
+        })),
+        payer: {
+          name: body.customer.name,
+          phone: { number: body.customer.phone },
+        },
+        back_urls: {
+          success: `${siteUrl}/?status=approved&preference_id=${body.customer.name}`,
+          failure: `${siteUrl}/?status=failure`,
+          pending: `${siteUrl}/?status=pending`,
+        },
+        auto_return: 'approved',
+        external_reference: `order_${Date.now()}_${body.deliveryDate || ''}_${body.deliveryTime || ''}`,
       },
-      transactions: {
-        payments: [
-          {
-            payment_methods: {
-              excluded: [],
-              installments: null,
-              default_installments: null,
-            },
-          },
-        ],
-      },
-      back_urls: {
-        success: `${siteUrl}/?status=approved`,
-        failure: `${siteUrl}/?status=failure`,
-        pending: `${siteUrl}/?status=pending`,
-      },
-      external_reference: `order_${Date.now()}_${body.deliveryDate}_${body.deliveryTime}`,
-    };
-
-    const idempotencyKey = `guayafood_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-
-    const mpRes = await fetch('https://api.mercadopago.com/orders', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': idempotencyKey,
-      },
-      body: JSON.stringify(orderPayload),
     });
-
-    const mpData = await mpRes.json();
-
-    if (!mpRes.ok) {
-      console.error('MP Orders API error:', mpData);
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Error al crear la orden en Mercado Pago' }));
-      return;
-    }
-
-    const orderId = mpData.id;
-    const initPoint = mpData.init_point;
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      order_id: orderId,
-      init_point: initPoint,
+      preference_id: result.id,
+      init_point: result.init_point,
     }));
   } catch (error) {
     console.error('create-order error:', error);
