@@ -46,6 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
     name: string;
     phone: string;
     address: string;
+    barrio?: string;
     reference?: string;
     items: { title: string; quantity: number }[];
     total: number;
@@ -85,7 +86,7 @@ export const POST: APIRoute = async ({ request }) => {
 
       const headers = [
         'Fecha', 'Preference ID', 'Estado', 'Nombre', 'Teléfono',
-        'Dirección', 'Referencia', 'Productos', 'Total', 'Notas',
+        'Dirección', 'Barrio', 'Referencia', 'Productos', 'Total', 'Notas',
         'Fecha de entrega', 'Horario',
       ];
 
@@ -106,6 +107,7 @@ export const POST: APIRoute = async ({ request }) => {
         Nombre: sanitizeSheetValue(body.name),
         Teléfono: sanitizeSheetValue(body.phone),
         Dirección: sanitizeSheetValue(body.address),
+        Barrio: sanitizeSheetValue(body.barrio || ''),
         Referencia: sanitizeSheetValue(body.reference || ''),
         Productos: body.items.map((i) => `${sanitizeSheetValue(i.title)} x${i.quantity}`).join(', '),
         Total: `$${body.total.toLocaleString('es-AR')}`,

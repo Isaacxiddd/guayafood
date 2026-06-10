@@ -75,6 +75,69 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
           <p id="address-error" class="text-red-500 text-xs mt-1 hidden">Solo entregamos en Capital Federal. Ingresá una dirección en CABA.</p>
         </div>
         <div>
+          <label class="block text-sm font-semibold text-texto mb-1">Barrio <span class="text-xs text-vinotinto font-normal">(en CABA)</span></label>
+          <select id="field-barrio" class="w-full px-4 py-2.5 rounded-xl border border-crema-dark focus:border-vinotinto focus:ring-1 focus:ring-vinotinto outline-none text-sm transition-colors bg-white">
+            <option value="">Seleccioná tu barrio</option>
+            <option value="almagro">Almagro</option>
+            <option value="balvanera">Balvanera</option>
+            <option value="barracas">Barracas</option>
+            <option value="belgrano">Belgrano</option>
+            <option value="boedo">Boedo</option>
+            <option value="caballito">Caballito</option>
+            <option value="chacarita">Chacarita</option>
+            <option value="colegiales">Colegiales</option>
+            <option value="flores">Flores</option>
+            <option value="floresta">Floresta</option>
+            <option value="la boca">La Boca</option>
+            <option value="la paternal">La Paternal</option>
+            <option value="liniers">Liniers</option>
+            <option value="mataderos">Mataderos</option>
+            <option value="monte castro">Monte Castro</option>
+            <option value="montserrat">Montserrat</option>
+            <option value="nueva pompeya">Nueva Pompeya</option>
+            <option value="nuñez">Nuñez</option>
+            <option value="palermo">Palermo</option>
+            <option value="parque avellaneda">Parque Avellaneda</option>
+            <option value="parque chacabuco">Parque Chacabuco</option>
+            <option value="parque patricios">Parque Patricios</option>
+            <option value="puerto madero">Puerto Madero</option>
+            <option value="recoleta">Recoleta</option>
+            <option value="retiro">Retiro</option>
+            <option value="saavedra">Saavedra</option>
+            <option value="san cristóbal">San Cristóbal</option>
+            <option value="san nicolás">San Nicolás</option>
+            <option value="san telmo">San Telmo</option>
+            <option value="versalles">Versalles</option>
+            <option value="villa crespo">Villa Crespo</option>
+            <option value="villa del parque">Villa del Parque</option>
+            <option value="villa devoto">Villa Devoto</option>
+            <option value="villa general mitre">Villa General Mitre</option>
+            <option value="villa lugano">Villa Lugano</option>
+            <option value="villa luro">Villa Luro</option>
+            <option value="villa ortúzar">Villa Ortúzar</option>
+            <option value="villa pueyrredón">Villa Pueyrredón</option>
+            <option value="villa real">Villa Real</option>
+            <option value="villa riachuelo">Villa Riachuelo</option>
+            <option value="villa santa rita">Villa Santa Rita</option>
+            <option value="villa soldati">Villa Soldati</option>
+            <option value="villa urquiza">Villa Urquiza</option>
+            <option value="coghlan">Coghlan</option>
+            <option value="barrio norte">Barrio Norte</option>
+            <option value="barrio sur">Barrio Sur</option>
+            <option value="palermo viejo">Palermo Viejo</option>
+            <option value="palermo soho">Palermo Soho</option>
+            <option value="palermo hollywood">Palermo Hollywood</option>
+            <option value="las cañitas">Las Cañitas</option>
+            <option value="abasto">Abasto</option>
+            <option value="once">Once</option>
+            <option value="congreso">Congreso</option>
+            <option value="tribunales">Tribunales</option>
+            <option value="microcentro">Microcentro</option>
+            <option value="constitucion">Constitución</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div>
           <label class="block text-sm font-semibold text-texto mb-1">Fecha de entrega <span class="text-xs text-vinotinto">(pedí con anticipación)</span></label>
           <input id="field-date" type="date" class="w-full px-4 py-2.5 rounded-xl border border-crema-dark focus:border-vinotinto focus:ring-1 focus:ring-vinotinto outline-none text-sm transition-colors bg-white" />
           <p id="date-error" class="text-red-500 text-xs mt-1 hidden"></p>
@@ -143,6 +206,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
   const fieldName = document.getElementById('field-name');
   const fieldPhone = document.getElementById('field-phone');
   const fieldAddress = document.getElementById('field-address');
+  const fieldBarrio = document.getElementById('field-barrio');
   const phoneError = document.getElementById('phone-error');
   const addressError = document.getElementById('address-error');
   const fieldDate = document.getElementById('field-date');
@@ -176,6 +240,8 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
   let addressChecking = false;
 
   function isCapitalFederalClient(address) {
+    const barrio = fieldBarrio ? fieldBarrio.value : '';
+    if (barrio && barrio !== 'otro') return true;
     const lower = (address || '').toLowerCase();
     const keywords = ['capital federal', 'caba', 'ciudad autonoma de buenos aires'];
     if (keywords.some((kw) => lower.includes(kw))) return true;
@@ -210,7 +276,10 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
       const res = await fetch(VALIDATE_ADDRESS_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address }),
+        body: JSON.stringify({
+          address,
+          barrio: fieldBarrio ? fieldBarrio.value : '',
+        }),
       });
       const data = await res.json();
       addressValidated = true;
@@ -408,6 +477,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     addressIsCaba = false;
     addressError.classList.add('hidden');
     fieldAddress.value = 'Biarritz 1893, CABA';
+    if (fieldBarrio) fieldBarrio.value = 'belgrano';
     fieldAddress.dispatchEvent(new Event('input', { bubbles: true }));
   });
 
@@ -475,6 +545,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     const name = fieldName.value.trim();
     const phone = fieldPhone.value.trim();
     const address = fieldAddress.value.trim();
+    const barrio = fieldBarrio ? fieldBarrio.value : '';
     const date = fieldDate.value;
     const time = fieldTime.value;
     const reference = fieldReference.value.trim();
@@ -488,6 +559,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     text += `👤 Nombre: ${name}\n`;
     text += `📞 Teléfono: ${phone}\n`;
     text += `📍 Dirección: ${address}\n`;
+    if (barrio && barrio !== 'otro') text += `🏘️ Barrio: ${fieldBarrio.options[fieldBarrio.selectedIndex].text}\n`;
     if (reference) text += `🏠 Referencia: ${reference}\n`;
     text += `📅 Fecha: ${date}\n`;
     text += `⏰ Horario: ${time}\n`;
@@ -507,6 +579,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     const name = fieldName.value.trim();
     const phone = fieldPhone.value.trim();
     const address = fieldAddress.value.trim();
+    const barrio = fieldBarrio ? fieldBarrio.value : '';
     const date = fieldDate.value;
     const time = fieldTime.value;
     const reference = fieldReference.value.trim();
@@ -530,7 +603,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     const total = currentData.unitPrice * quantity;
 
     const order = {
-      name, phone, address, reference, notes,
+      name, phone, address, barrio, reference, notes,
       deliveryDate: date, deliveryTime: time,
       items: [{ title: currentData.name, quantity, unitPrice: currentData.unitPrice }],
       total,
@@ -544,7 +617,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: order.items,
-          customer: { name, phone, address },
+          customer: { name, phone, address, barrio },
           notes, deliveryDate: date, deliveryTime: time, reference,
         }),
       });

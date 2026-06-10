@@ -55,6 +55,7 @@ import Footer from '../components/Footer.astro';
           name: data.name,
           phone: data.phone,
           address: data.address,
+          barrio: data.barrio || '',
           reference: data.reference || '',
           items: data.items,
           total: data.total,
@@ -76,6 +77,7 @@ import Footer from '../components/Footer.astro';
     text += `👤 Nombre: ${data.name}\n`;
     text += `📞 Teléfono: ${data.phone}\n`;
     text += `📍 Dirección: ${data.address}\n`;
+    if (data.barrio) text += `🏘️ Barrio: ${data.barrio}\n`;
     if (data.reference) text += `🏠 Referencia: ${data.reference}\n`;
     if (data.deliveryDate) text += `📅 Fecha: ${data.deliveryDate}\n`;
     if (data.deliveryTime) text += `⏰ Horario: ${data.deliveryTime}\n`;

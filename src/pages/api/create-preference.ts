@@ -49,7 +49,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: {
     items: { title: string; quantity: number; unitPrice: number }[];
-    customer: { name: string; phone: string; address: string };
+    customer: { name: string; phone: string; address: string; barrio?: string };
     notes?: string;
     deliveryDate?: string;
     deliveryTime?: string;
@@ -73,6 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const addr = body.customer.address.toLowerCase();
+  const barrio = (body.customer.barrio || '').toLowerCase().trim();
   const cabaKeywords = [
     'capital federal', 'caba', 'ciudad autonoma de buenos aires',
     'agronomía', 'almagro', 'balvanera', 'barracas', 'belgrano', 'boedo',
@@ -89,22 +90,31 @@ export const POST: APIRoute = async ({ request }) => {
     'barrio norte', 'barrio sur',
   ];
 
-  const cpMatch = addr.match(/\bc(\d{4})\b/);
-  if (cpMatch) {
-    const cpNum = parseInt(cpMatch[1], 10);
-    if (cpNum >= 1000 && cpNum <= 1999) {
-      // CP is CABA range → OK
-    } else {
-      return new Response(JSON.stringify({ error: 'El código postal no corresponde a CABA. Solo entregamos en Capital Federal.' }), {
+  let addressValid = false;
+
+  if (barrio && barrio !== 'otro') {
+    const known = [...cabaKeywords, 'constitucion'];
+    if (known.includes(barrio)) addressValid = true;
+  }
+
+  if (!addressValid) {
+    const cpMatch = addr.match(/\bc(\d{4})\b/);
+    if (cpMatch) {
+      const cpNum = parseInt(cpMatch[1], 10);
+      if (cpNum >= 1000 && cpNum <= 1999) {
+        addressValid = true;
+      } else {
+        return new Response(JSON.stringify({ error: 'El código postal no corresponde a CABA. Solo entregamos en Capital Federal.' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    } else if (!cabaKeywords.some((k) => addr.includes(k))) {
+      return new Response(JSON.stringify({ error: 'No pudimos verificar que la dirección sea de CABA. Incluí el código postal (ej: C1425).' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-  } else if (!cabaKeywords.some((k) => addr.includes(k))) {
-    return new Response(JSON.stringify({ error: 'No pudimos verificar que la dirección sea de CABA. Incluí el código postal (ej: C1425).' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
   }
 
   const phoneDigits = (body.customer.phone || '').replace(/\D/g, '');

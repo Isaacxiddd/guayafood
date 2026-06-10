@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  let body: { address?: string };
+  let body: { address?: string; barrio?: string };
 
   try {
     body = await request.json();
@@ -106,6 +106,18 @@ export const POST: APIRoute = async ({ request }) => {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  const barrio = (body.barrio || '').toLowerCase().trim();
+
+  if (barrio && barrio !== 'otro') {
+    const known = [...CABA_BARRIOS, 'constitucion'];
+    if (known.includes(barrio)) {
+      return new Response(JSON.stringify({ isCaba: true, method: 'barrio', confidence: 'alta' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   const cp = extractPostalCode(address);
