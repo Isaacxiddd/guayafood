@@ -491,25 +491,42 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     if (!address) { fieldAddress.focus(); return; }
     if (!validateForm()) return;
 
+    btnMpPay.disabled = true;
+    btnMpPay.innerHTML = '⏳ Procesando...';
+
     const total = currentData.unitPrice * quantity;
 
     const order = {
-      name,
-      phone,
-      address,
-      reference,
-      notes,
-      deliveryDate: date,
-      deliveryTime: time,
+      name, phone, address, reference, notes,
+      deliveryDate: date, deliveryTime: time,
       items: [{ title: currentData.name, quantity, unitPrice: currentData.unitPrice }],
       total,
     };
 
     sessionStorage.setItem('guayafood_order', JSON.stringify(order));
 
-    closeModal();
-
-    window.open('https://link.mercadopago.com.ar/guayafood', '_blank');
+    try {
+      const res = await fetch('/api/create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: order.items,
+          customer: { name, phone, address },
+          notes, deliveryDate: date, deliveryTime: time, reference,
+        }),
+      });
+      const data = await res.json();
+      if (data.init_point) {
+        closeModal();
+        window.location.href = data.init_point;
+      } else {
+        throw new Error(data.error || 'Error al crear el pago');
+      }
+    } catch (err) {
+      btnMpPay.disabled = false;
+      btnMpPay.innerHTML = `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-13h-2v6l5.25 3.15.75-1.23-4-2.37V7z"/></svg> Ir a pagar con Mercado Pago`;
+      alert('Error al conectar con Mercado Pago. Intentalo de nuevo.');
+    }
   });
 
   document.addEventListener('keydown', (e) => {

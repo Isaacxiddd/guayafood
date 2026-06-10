@@ -26,6 +26,8 @@ import Footer from '../components/Footer.astro';
 <script>
   const params = new URLSearchParams(window.location.search);
   const status = params.get('status');
+  const paymentId = params.get('payment_id');
+  const preferenceId = params.get('preference_id');
 
   if (!status) {
     sessionStorage.removeItem('guayafood_order');
@@ -47,7 +49,8 @@ import Footer from '../components/Footer.astro';
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          preferenceId: data.preferenceId || 'link_directo',
+          preferenceId: preferenceId || data.preferenceId || 'link_directo',
+          paymentId: paymentId || '',
           status: 'approved',
           name: data.name,
           phone: data.phone,
@@ -77,7 +80,53 @@ import Footer from '../components/Footer.astro';
     if (data.deliveryDate) text += `📅 Fecha: ${data.deliveryDate}\n`;
     if (data.deliveryTime) text += `⏰ Horario: ${data.deliveryTime}\n`;
     if (data.notes) text += `📝 Notas: ${data.notes}\n`;
+    if (paymentId) text += `\n🧾 ID de pago: ${paymentId}`;
     return text;
+  }
+
+  function showBanner(type, data) {
+    const div = document.getElementById('payment-status');
+    div.classList.remove('hidden');
+
+    if (type === 'approved') {
+      const waText = data ? buildWaText(data) : 'Hola! Ya hice el pago por Mercado Pago';
+      const waUrl = `https://wa.me/5491123861180?text=${encodeURIComponent(waText)}`;
+
+      div.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-center';
+      div.innerHTML = `
+        <span class="text-3xl block mb-2">✅</span>
+        <h3 class="font-bold text-lg mb-1">¡Pago recibido!</h3>
+        <p class="text-green-100 text-sm mb-3">Gracias por tu compra. Te llegará una notificación al negocio con tu pedido.</p>
+        <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="inline-block bg-white text-green-700 font-bold px-6 py-3 rounded-full text-sm mb-2 hover:bg-green-50 transition-colors">
+          📲 Enviar comprobante por WhatsApp (opcional)
+        </a>
+        <button onclick="this.parentElement.remove()" class="block mx-auto mt-2 text-xs text-green-200 underline">Cerrar</button>
+      `;
+
+      setTimeout(() => window.open(waUrl, '_blank'), 800);
+    } else if (type === 'failure') {
+      div.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-center';
+      div.innerHTML = `
+        <span class="text-3xl block mb-2">❌</span>
+        <h3 class="font-bold text-lg mb-1">Pago no completado</h3>
+        <p class="text-red-100 text-sm mb-3">El pago no pudo procesarse. Podés intentar de nuevo o pedir por WhatsApp.</p>
+        <a href="https://wa.me/5491123861180" target="_blank" rel="noopener noreferrer" class="inline-block bg-white text-red-700 font-bold px-6 py-3 rounded-full text-sm hover:bg-red-50 transition-colors">
+          📲 Pedir por WhatsApp
+        </a>
+        <button onclick="this.parentElement.remove()" class="block mx-auto mt-2 text-xs text-red-200 underline">Cerrar</button>
+      `;
+    } else if (type === 'pending') {
+      div.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-yellow-600 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-center';
+      div.innerHTML = `
+        <span class="text-3xl block mb-2">⏳</span>
+        <h3 class="font-bold text-lg mb-1">Pago pendiente</h3>
+        <p class="text-yellow-100 text-sm mb-3">Estamos esperando la confirmación del pago. Si ya pagaste, envianos el comprobante por WhatsApp.</p>
+        <a href="https://wa.me/5491123861180" target="_blank" rel="noopener noreferrer" class="inline-block bg-white text-yellow-700 font-bold px-6 py-3 rounded-full text-sm hover:bg-yellow-50 transition-colors">
+          📲 Enviar comprobante
+        </a>
+        <button onclick="this.parentElement.remove()" class="block mx-auto mt-2 text-xs text-yellow-200 underline">Cerrar</button>
+      `;
+    }
   }
 
   if (status === 'approved') {
@@ -85,56 +134,17 @@ import Footer from '../components/Footer.astro';
     if (data) {
       saveOrder(data);
       clearOrderData();
+      showBanner('approved', data);
+    } else {
+      showBanner('approved', null);
     }
-
-    const waText = data ? buildWaText(data) : 'Hola! Ya hice el pago por Mercado Pago';
-    const waUrl = `https://wa.me/5491123861180?text=${encodeURIComponent(waText)}`;
-
-    const div = document.getElementById('payment-status');
-    div.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-center';
-    div.innerHTML = `
-      <span class="text-3xl block mb-2">✅</span>
-      <h3 class="font-bold text-lg mb-1">¡Pago recibido!</h3>
-      <p class="text-green-100 text-sm mb-3">Gracias por tu compra. Ahora envianos el comprobante por WhatsApp para confirmar tu pedido.</p>
-      <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="inline-block bg-white text-green-700 font-bold px-6 py-3 rounded-full text-sm mb-2 hover:bg-green-50 transition-colors">
-        📲 Enviar comprobante por WhatsApp
-      </a>
-      <button onclick="this.parentElement.remove()" class="block mx-auto mt-2 text-xs text-green-200 underline">Cerrar</button>
-    `;
-    div.classList.remove('hidden');
-
     window.history.replaceState({}, '', '/');
   } else if (status === 'failure') {
     clearOrderData();
-
-    const div = document.getElementById('payment-status');
-    div.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-red-600 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-center';
-    div.innerHTML = `
-      <span class="text-3xl block mb-2">❌</span>
-      <h3 class="font-bold text-lg mb-1">Pago no completado</h3>
-      <p class="text-red-100 text-sm mb-3">El pago no pudo procesarse. Podés intentar de nuevo o pedir por WhatsApp.</p>
-      <a href="https://wa.me/5491123861180" target="_blank" rel="noopener noreferrer" class="inline-block bg-white text-red-700 font-bold px-6 py-3 rounded-full text-sm hover:bg-red-50 transition-colors">
-        📲 Pedir por WhatsApp
-      </a>
-      <button onclick="this.parentElement.remove()" class="block mx-auto mt-2 text-xs text-red-200 underline">Cerrar</button>
-    `;
-    div.classList.remove('hidden');
-
+    showBanner('failure');
     window.history.replaceState({}, '', '/');
   } else if (status === 'pending') {
-    const div = document.getElementById('payment-status');
-    div.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-[60] bg-yellow-600 text-white px-6 py-4 rounded-2xl shadow-2xl max-w-md w-full mx-4 text-center';
-    div.innerHTML = `
-      <span class="text-3xl block mb-2">⏳</span>
-      <h3 class="font-bold text-lg mb-1">Pago pendiente</h3>
-      <p class="text-yellow-100 text-sm mb-3">Estamos esperando la confirmación del pago. Si ya pagaste, envianos el comprobante por WhatsApp.</p>
-      <a href="https://wa.me/5491123861180" target="_blank" rel="noopener noreferrer" class="inline-block bg-white text-yellow-700 font-bold px-6 py-3 rounded-full text-sm hover:bg-yellow-50 transition-colors">
-        📲 Enviar comprobante
-      </a>
-      <button onclick="this.parentElement.remove()" class="block mx-auto mt-2 text-xs text-yellow-200 underline">Cerrar</button>
-    `;
-    div.classList.remove('hidden');
-
+    showBanner('pending');
     window.history.replaceState({}, '', '/');
   }
 </script>
