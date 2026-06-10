@@ -4,7 +4,7 @@ import { getClientIp, checkRateLimit } from '../../lib/rate-limit';
 export const prerender = false;
 
 const CABA_BARRIOS = [
-  'capital federal', 'caba', 'buenos aires', 'ciudad autonoma de buenos aires',
+  'capital federal', 'caba', 'ciudad autonoma de buenos aires',
   'agronomía', 'almagro', 'balvanera', 'barracas', 'belgrano', 'boedo',
   'caballito', 'chacarita', 'colegiales', 'constitución', 'flores', 'floresta',
   'la boca', 'la paternal', 'liniers', 'mataderos', 'monte castro', 'montserrat',

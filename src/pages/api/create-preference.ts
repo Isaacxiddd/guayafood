@@ -74,7 +74,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const addr = body.customer.address.toLowerCase();
   const cabaKeywords = [
-    'capital federal', 'caba', 'buenos aires', 'ciudad autonoma de buenos aires',
+    'capital federal', 'caba', 'ciudad autonoma de buenos aires',
     'agronomía', 'almagro', 'balvanera', 'barracas', 'belgrano', 'boedo',
     'caballito', 'chacarita', 'colegiales', 'constitución', 'flores', 'floresta',
     'la boca', 'la paternal', 'liniers', 'mataderos', 'monte castro', 'montserrat',

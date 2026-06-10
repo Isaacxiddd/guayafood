@@ -177,7 +177,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
 
   function isCapitalFederalClient(address) {
     const lower = (address || '').toLowerCase();
-    const keywords = ['capital federal', 'caba', 'buenos aires', 'ciudad autonoma de buenos aires'];
+    const keywords = ['capital federal', 'caba', 'ciudad autonoma de buenos aires'];
     if (keywords.some((kw) => lower.includes(kw))) return true;
     const cpMatch = lower.match(/\bc\d{4}\b/);
     if (cpMatch) {
