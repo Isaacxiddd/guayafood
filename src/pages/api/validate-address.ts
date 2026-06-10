@@ -20,8 +20,8 @@ const CABA_BARRIOS = [
 ];
 
 function extractPostalCode(address: string): string | null {
-  const match = address.match(/\bC\d{4}\b/);
-  return match ? match[0] : null;
+  const match = address.match(/\bC(\d{4})\b/);
+  return match ? match[1] : null;
 }
 
 function keywordCheck(address: string): boolean {
@@ -29,17 +29,18 @@ function keywordCheck(address: string): boolean {
   return CABA_BARRIOS.some((b) => lower.includes(b));
 }
 
-function zipCodeCheck(address: string): boolean {
-  const cp = extractPostalCode(address);
-  if (!cp) return false;
-  const num = parseInt(cp.slice(1), 10);
-  return num >= 1000 && num <= 1999;
+function zipCodeCheck(address: string): 'caba' | 'not-caba' | null {
+  const num = extractPostalCode(address);
+  if (!num) return null;
+  const n = parseInt(num, 10);
+  if (n >= 1000 && n <= 1999) return 'caba';
+  return 'not-caba';
 }
 
 async function nominatimCheck(address: string): Promise<{ isCaba: boolean; confidence: string } | null> {
   try {
-    const encoded = encodeURIComponent(`${address}, Buenos Aires, Argentina`);
-    const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&addressdetails=1&limit=1`;
+    const encoded = encodeURIComponent(`${address}, Argentina`);
+    const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&addressdetails=1&limit=3&countrycodes=ar`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(url, {
@@ -50,14 +51,29 @@ async function nominatimCheck(address: string): Promise<{ isCaba: boolean; confi
     if (!res.ok) return null;
     const data = await res.json();
     if (!data?.length) return null;
-    const state = (data[0].address?.state || '').toLowerCase();
-    const city = (data[0].address?.city || '').toLowerCase();
-    const isCaba = state.includes('ciudad autónoma de buenos aires')
-      || state.includes('buenos aires')
-      || city.includes('caba')
-      || city.includes('capital federal')
-      || city.includes('ciudad autónoma');
-    return { isCaba, confidence: isCaba ? 'alta' : 'baja' };
+
+    let hasResult = false;
+    for (const item of data) {
+      const state = (item.address?.state || '').toLowerCase();
+      const city = (item.address?.city || '').toLowerCase();
+      const county = (item.address?.county || '').toLowerCase();
+      const country = (item.address?.country || '').toLowerCase();
+
+      if (country !== 'argentina') continue;
+      hasResult = true;
+
+      const isCaba = state.includes('ciudad autónoma')
+        || city.includes('caba')
+        || city.includes('capital federal')
+        || city.includes('ciudad autónoma')
+        || county.includes('capital federal')
+        || county.includes('caba');
+
+      if (isCaba) return { isCaba: true, confidence: 'alta' };
+    }
+
+    if (hasResult) return { isCaba: false, confidence: 'media' };
+    return null;
   } catch {
     return null;
   }
@@ -92,15 +108,29 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  if (keywordCheck(address)) {
-    return new Response(JSON.stringify({ isCaba: true, method: 'keyword', confidence: 'alta' }), {
+  const cp = extractPostalCode(address);
+
+  if (cp) {
+    const n = parseInt(cp, 10);
+    if (n >= 1000 && n <= 1999) {
+      return new Response(JSON.stringify({ isCaba: true, method: 'zipcode', confidence: 'alta' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({
+      isCaba: false,
+      method: 'zipcode',
+      confidence: 'alta',
+      error: 'El código postal no corresponde a CABA. Solo hacemos envíos dentro de Capital Federal.',
+    }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  if (zipCodeCheck(address)) {
-    return new Response(JSON.stringify({ isCaba: true, method: 'zipcode', confidence: 'alta' }), {
+  if (keywordCheck(address)) {
+    return new Response(JSON.stringify({ isCaba: true, method: 'keyword', confidence: 'alta' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -120,10 +150,10 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   return new Response(JSON.stringify({
-    isCaba: true,
+    isCaba: false,
     method: 'fallback',
     confidence: 'baja',
-    warning: 'No se pudo verificar automáticamente. Confirmá que sea CABA.',
+    error: 'No pudimos verificar que la dirección sea de CABA. Incluí el código postal (ej: C1425).',
   }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

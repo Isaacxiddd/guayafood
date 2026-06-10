@@ -75,16 +75,33 @@ export const POST: APIRoute = async ({ request }) => {
   const addr = body.customer.address.toLowerCase();
   const cabaKeywords = [
     'capital federal', 'caba', 'buenos aires', 'ciudad autonoma de buenos aires',
-    'palermo', 'belgrano', 'recoleta', 'flores', 'floresta', 'almagro', 'caballito',
-    'nuñez', 'saavedra', 'villa crespo', 'villa devoto', 'villa urquiza',
-    'barracas', 'boedo', 'san telmo', 'la boca', 'montserrat', 'retiro',
-    'puerto madero', 'chacarita', 'colegiales', 'balvanera',
+    'agronomía', 'almagro', 'balvanera', 'barracas', 'belgrano', 'boedo',
+    'caballito', 'chacarita', 'colegiales', 'constitución', 'flores', 'floresta',
+    'la boca', 'la paternal', 'liniers', 'mataderos', 'monte castro', 'montserrat',
+    'nueva pompeya', 'nuñez', 'palermo', 'parque avellaneda', 'parque chacabuco',
+    'parque patricios', 'puerto madero', 'recoleta', 'retiro', 'saavedra',
+    'san cristóbal', 'san nicolás', 'san telmo', 'versalles', 'villa crespo',
+    'villa del parque', 'villa devoto', 'villa general mitre', 'villa lugano',
+    'villa luro', 'villa ortúzar', 'villa pueyrredón', 'villa real',
+    'villa riachuelo', 'villa santa rita', 'villa soldati', 'villa urquiza',
+    'villa de mayo', 'coghlan', 'palermo viejo', 'palermo soho', 'palermo hollywood',
+    'las cañitas', 'abasto', 'once', 'congreso', 'tribunales', 'microcentro',
+    'barrio norte', 'barrio sur',
   ];
-  const isCaba = cabaKeywords.some((k) => addr.includes(k))
-    || (() => { const m = addr.match(/\bc(\d{4})\b/); return m && +m[1] >= 1000 && +m[1] <= 1999; })();
 
-  if (!isCaba) {
-    return new Response(JSON.stringify({ error: 'Solo entregamos en Capital Federal. Ingresá una dirección en CABA.' }), {
+  const cpMatch = addr.match(/\bc(\d{4})\b/);
+  if (cpMatch) {
+    const cpNum = parseInt(cpMatch[1], 10);
+    if (cpNum >= 1000 && cpNum <= 1999) {
+      // CP is CABA range → OK
+    } else {
+      return new Response(JSON.stringify({ error: 'El código postal no corresponde a CABA. Solo entregamos en Capital Federal.' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  } else if (!cabaKeywords.some((k) => addr.includes(k))) {
+    return new Response(JSON.stringify({ error: 'No pudimos verificar que la dirección sea de CABA. Incluí el código postal (ej: C1425).' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
