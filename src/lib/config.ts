@@ -154,7 +154,8 @@ export const DELIVERY = {
 };
 
 export const MERCADOPAGO = {
-  apiUrl: '/api/create-preference',
+  ordersApiUrl: '/api/create-order',
+  preferencesApiUrl: '/api/create-preference',
   checkoutLink: 'https://link.mercadopago.com.ar/guayafood',
   buttonText: 'Comprar con Mercado Pago',
   currency: 'ARS',

@@ -9,7 +9,7 @@ test.describe('Guayafood Landing Page', () => {
 
   test('hero section has heading and CTA', async ({ page }) => {
     await page.goto('/');
-    const heading = page.locator('h1');
+    const heading = page.getByRole('heading', { name: /corazón/ });
     await expect(heading).toBeVisible();
     await expect(heading).toContainText('corazón');
 
