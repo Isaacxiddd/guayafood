@@ -102,6 +102,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   try {
+    console.log('Creating MP preference with items:', JSON.stringify(body.items));
+    console.log('Customer:', JSON.stringify(body.customer));
+
     const client = new MercadoPagoConfig({ accessToken });
     const preference = new Preference(client);
 
@@ -119,7 +122,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
           phone: { number: body.customer.phone },
         },
         back_urls: {
-          success: `${siteUrl}/?status=approved&preference_id=${body.customer.name}`,
+          success: `${siteUrl}/?status=approved`,
           failure: `${siteUrl}/?status=failure`,
           pending: `${siteUrl}/?status=pending`,
         },
@@ -128,14 +131,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       },
     });
 
+    console.log('MP preference created:', result.id, result.init_point);
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       preference_id: result.id,
       init_point: result.init_point,
     }));
   } catch (error) {
-    console.error('create-order error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('create-order error:', message, JSON.stringify(error, Object.getOwnPropertyNames(error)));
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Error al procesar el pago' }));
+    res.end(JSON.stringify({ error: `Error al procesar el pago: ${message}` }));
   }
 }
