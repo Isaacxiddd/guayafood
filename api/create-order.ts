@@ -1,4 +1,3 @@
-import { MercadoPagoConfig, Preference } from 'mercadopago';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const ADVANCE_HOURS = parseInt(process.env.PUBLIC_ADVANCE_HOURS || '24', 10);
@@ -105,43 +104,56 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     console.log('Creating MP preference with items:', JSON.stringify(body.items));
     console.log('Customer:', JSON.stringify(body.customer));
 
-    const client = new MercadoPagoConfig({ accessToken });
-    const preference = new Preference(client);
-
-    const result = await preference.create({
-      body: {
-        items: body.items.map((i) => ({
-          id: 'MP-ITEM',
-          title: i.title,
-          quantity: i.quantity,
-          unit_price: i.unitPrice,
-          currency_id: 'ARS',
-        })),
-        payer: {
-          name: body.customer.name,
-          phone: { number: body.customer.phone },
-        },
-        back_urls: {
-          success: `${siteUrl}/?status=approved`,
-          failure: `${siteUrl}/?status=failure`,
-          pending: `${siteUrl}/?status=pending`,
-        },
-        auto_return: 'approved',
-        external_reference: `order_${Date.now()}_${body.deliveryDate || ''}_${body.deliveryTime || ''}`,
+    const payload = {
+      items: body.items.map((i) => ({
+        id: 'MP-ITEM',
+        title: i.title,
+        quantity: i.quantity,
+        unit_price: i.unitPrice,
+        currency_id: 'ARS',
+      })),
+      payer: {
+        name: body.customer.name,
+        phone: { number: body.customer.phone },
       },
+      back_urls: {
+        success: `${siteUrl}/?status=approved`,
+        failure: `${siteUrl}/?status=failure`,
+        pending: `${siteUrl}/?status=pending`,
+      },
+      auto_return: 'approved',
+      external_reference: `order_${Date.now()}_${body.deliveryDate || ''}_${body.deliveryTime || ''}`,
+    };
+
+    const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
 
-    console.log('MP preference created:', result.id, result.init_point);
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('MP API error:', JSON.stringify(data));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Error de Mercado Pago: ${data.message || data.error || response.statusText}` }));
+      return;
+    }
+
+    console.log('MP preference created:', data.id, data.init_point);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      preference_id: result.id,
-      init_point: result.init_point,
+      preference_id: data.id,
+      init_point: data.init_point,
     }));
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('create-order error:', message, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    const text = error instanceof Error ? `${error.name}: ${error.message}` : JSON.stringify(error);
+    console.error('create-order error:', text);
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: `Error al procesar el pago: ${message}` }));
+    res.end(JSON.stringify({ error: `Error interno: ${text}` }));
   }
 }

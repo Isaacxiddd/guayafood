@@ -1,4 +1,3 @@
-import { MercadoPagoConfig, Preference } from 'mercadopago';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 const ADVANCE_HOURS = parseInt(process.env.PUBLIC_ADVANCE_HOURS || '24', 10);
@@ -90,55 +89,56 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   try {
-    const client = new MercadoPagoConfig({ accessToken });
-    const preference = new Preference(client);
-
-    const deliveryInfo = `Fecha: ${body.deliveryDate} ${body.deliveryTime}${body.reference ? ` - Ref: ${body.reference}` : ''}`;
-
-    const result = await preference.create({
-      body: {
-        items: [
-          ...body.items.map((i) => ({
-            id: 'MP-ITEM',
-            title: i.title,
-            quantity: i.quantity,
-            unit_price: i.unitPrice,
-            currency_id: 'ARS',
-          })),
-          {
-            id: 'MP-DELIVERY',
-            title: 'Delivery programado',
-            quantity: 1,
-            unit_price: 0,
-            currency_id: 'ARS',
-            description: deliveryInfo,
-          },
-        ],
-        payer: {
-          name: body.customer.name,
-          phone: { number: body.customer.phone },
-        },
-        back_urls: {
-          success: `${siteUrl}/?status=approved&preference_id={{preference_id}}`,
-          failure: `${siteUrl}/?status=failure&preference_id={{preference_id}}`,
-          pending: `${siteUrl}/?status=pending&preference_id={{preference_id}}`,
-        },
-        auto_return: 'approved',
-        external_reference: `order_${Date.now()}_${body.deliveryDate}_${body.deliveryTime}`,
+    const payload = {
+      items: [
+        ...body.items.map((i) => ({
+          id: 'MP-ITEM',
+          title: i.title,
+          quantity: i.quantity,
+          unit_price: i.unitPrice,
+          currency_id: 'ARS',
+        })),
+      ],
+      payer: {
+        name: body.customer.name,
+        phone: { number: body.customer.phone },
       },
+      back_urls: {
+        success: `${siteUrl}/?status=approved`,
+        failure: `${siteUrl}/?status=failure`,
+        pending: `${siteUrl}/?status=pending`,
+      },
+      auto_return: 'approved',
+      external_reference: `order_${Date.now()}_${body.deliveryDate}_${body.deliveryTime}`,
+    };
+
+    const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
     });
 
-    const preferenceId = result.id!;
-    const initPoint = result.init_point!;
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('MP API error:', JSON.stringify(data));
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Error de Mercado Pago: ${data.message || data.error || response.statusText}` }));
+      return;
+    }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      preference_id: preferenceId,
-      init_point: initPoint,
+      preference_id: data.id,
+      init_point: data.init_point,
     }));
   } catch (error) {
-    console.error('Mercado Pago error:', error);
+    const text = error instanceof Error ? `${error.name}: ${error.message}` : JSON.stringify(error);
+    console.error('Mercado Pago error:', text);
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Error al procesar el pago' }));
+    res.end(JSON.stringify({ error: `Error interno: ${text}` }));
   }
 }
