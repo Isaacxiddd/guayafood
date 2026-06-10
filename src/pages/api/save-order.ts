@@ -1,13 +1,9 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { APIRoute } from 'astro';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
-import { checkRateLimit } from './lib/rate-limit';
+import { getClientIp, checkRateLimit } from '../../lib/rate-limit';
 
-const MAX_BODY_SIZE = 100_000;
-
-function getClientIp(req: IncomingMessage): string {
-  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
-}
+export const prerender = false;
 
 function sanitizeSheetValue(value: string): string {
   if (typeof value !== 'string') return value;
@@ -34,19 +30,14 @@ function getSheetId() {
   return process.env.GOOGLE_SHEET_ID || '';
 }
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  const ip = getClientIp(req);
+export const POST: APIRoute = async ({ request }) => {
+  const ip = getClientIp(request);
   const rate = checkRateLimit(ip);
   if (!rate.allowed) {
-    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(rate.resetIn / 1000)) });
-    res.end(JSON.stringify({ error: 'Demasiadas solicitudes. Intentalo de nuevo en unos segundos.' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Demasiadas solicitudes. Intentalo de nuevo en unos segundos.' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(rate.resetIn / 1000)) },
+    });
   }
 
   let body: {
@@ -64,28 +55,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   };
 
   try {
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    for await (const chunk of req) {
-      totalBytes += chunk.length;
-      if (totalBytes > MAX_BODY_SIZE) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Request body too large' }));
-        return;
-      }
-      chunks.push(chunk);
-    }
-    body = JSON.parse(Buffer.concat(chunks).toString());
+    body = await request.json();
   } catch {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Invalid JSON body' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   if (!body.preferenceId || !body.name || !body.address) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Missing required fields' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -133,11 +115,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       });
     }
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ ok: true }));
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Save order error:', error);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Error al guardar el pedido' }));
+    return new Response(JSON.stringify({ error: 'Error al guardar el pedido' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-}
+};

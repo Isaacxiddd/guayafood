@@ -16,6 +16,7 @@
     "lint": "npx astro check"
   },
   "dependencies": {
+    "@astrojs/vercel": "^10.0.8",
     "@tailwindcss/vite": "^4.3.0",
     "astro": "^6.4.5",
     "google-auth-library": "^10.7.0",

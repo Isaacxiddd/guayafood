@@ -1,13 +1,10 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { checkRateLimit } from './lib/rate-limit';
+import type { APIRoute } from 'astro';
+import { getClientIp, checkRateLimit } from '../../lib/rate-limit';
 
-const MAX_BODY_SIZE = 100_000;
+export const prerender = false;
+
 const ADVANCE_HOURS = parseInt(process.env.PUBLIC_ADVANCE_HOURS || '24', 10);
 const WORKING_DAYS = [1, 2, 3, 4, 5, 6];
-
-function getClientIp(req: IncomingMessage): string {
-  return (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
-}
 
 function validateDeliveryDate(dateStr: string): string | null {
   if (!dateStr) return 'Falta la fecha de entrega.';
@@ -29,26 +26,22 @@ function validateDeliveryTime(timeStr: string): string | null {
   return null;
 }
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
-  if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
-    return;
-  }
-
-  const ip = getClientIp(req);
+export const POST: APIRoute = async ({ request }) => {
+  const ip = getClientIp(request);
   const rate = checkRateLimit(ip);
   if (!rate.allowed) {
-    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(rate.resetIn / 1000)) });
-    res.end(JSON.stringify({ error: 'Demasiadas solicitudes. Intentalo de nuevo en unos segundos.' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Demasiadas solicitudes. Intentalo de nuevo en unos segundos.' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': String(Math.ceil(rate.resetIn / 1000)) },
+    });
   }
 
   const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
   if (!accessToken) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Missing MERCADOPAGO_ACCESS_TOKEN' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Missing MERCADOPAGO_ACCESS_TOKEN' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const siteUrl = process.env.PUBLIC_SITE_URL || 'https://guayafood.vercel.app';
@@ -63,28 +56,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   };
 
   try {
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    for await (const chunk of req) {
-      totalBytes += chunk.length;
-      if (totalBytes > MAX_BODY_SIZE) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Request body too large' }));
-        return;
-      }
-      chunks.push(chunk);
-    }
-    body = JSON.parse(Buffer.concat(chunks).toString());
+    body = await request.json();
   } catch {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Invalid JSON body' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   if (!body.items?.length || !body.customer?.name || !body.customer?.address) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Faltan campos obligatorios' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const addr = body.customer.address.toLowerCase();
@@ -92,23 +76,26 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     || /\bc\d{4}\b/.test(addr);
 
   if (!isCaba) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Solo entregamos en Capital Federal. Ingresá una dirección en CABA.' }));
-    return;
+    return new Response(JSON.stringify({ error: 'Solo entregamos en Capital Federal. Ingresá una dirección en CABA.' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const dateError = validateDeliveryDate(body.deliveryDate || '');
   if (dateError) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: dateError }));
-    return;
+    return new Response(JSON.stringify({ error: dateError }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   const timeError = validateDeliveryTime(body.deliveryTime || '');
   if (timeError) {
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: timeError }));
-    return;
+    return new Response(JSON.stringify({ error: timeError }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -148,19 +135,24 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     if (!response.ok) {
       console.error('MP API error:', JSON.stringify(data));
-      res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Error al procesar el pago. Intentalo de nuevo.' }));
-      return;
+      return new Response(JSON.stringify({ error: 'Error al procesar el pago. Intentalo de nuevo.' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
+    return new Response(JSON.stringify({
       preference_id: data.id,
       init_point: data.init_point,
-    }));
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
   } catch (error) {
     console.error('Mercado Pago error:', error instanceof Error ? error.message : error);
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Error interno del servidor' }));
+    return new Response(JSON.stringify({ error: 'Error interno del servidor' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-}
+};
