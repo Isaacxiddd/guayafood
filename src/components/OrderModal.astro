@@ -508,39 +508,9 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     localStorage.setItem('guayafood_order', JSON.stringify(order));
     sessionStorage.setItem('guayafood_order', JSON.stringify(order));
 
-    btnMpPay.disabled = true;
-    btnMpPay.innerHTML = '⏳ Creando orden...';
-
-    try {
-      const res = await fetch(CREATE_ORDER_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: order.items,
-          customer: { name: order.name, phone: order.phone, address: order.address },
-          notes: order.notes,
-          deliveryDate: order.deliveryDate,
-          deliveryTime: order.deliveryTime,
-          reference: order.reference,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.init_point) {
-        window.location.href = data.init_point;
-      } else {
-        alert(data.error || 'Error al crear la orden. Probá por WhatsApp.');
-        btnMpPay.disabled = false;
-        btnMpPay.innerHTML = `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-13h-2v6l5.25 3.15.75-1.23-4-2.37V7z"/></svg> Ir a pagar con Mercado Pago`;
-      }
-    } catch (err) {
-      console.error('Error creating order:', err);
-      alert('Error de conexión. Probá por WhatsApp.');
-      btnMpPay.disabled = false;
-      btnMpPay.innerHTML = `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm1-13h-2v6l5.25 3.15.75-1.23-4-2.37V7z"/></svg> Ir a pagar con Mercado Pago`;
-    }
-
     closeModal();
+
+    window.open('https://link.mercadopago.com.ar/guayafood', '_blank');
   });
 
   document.addEventListener('keydown', (e) => {
