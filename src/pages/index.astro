@@ -33,10 +33,35 @@ import Footer from '../components/Footer.astro';
     sessionStorage.removeItem('guayafood_order');
   }
 
+  function getDataFromUrl() {
+    const d = params.get('d');
+    if (!d) return null;
+    try {
+      const raw = JSON.parse(atob(d.replace(/-/g, '+').replace(/_/g, '/')));
+      return {
+        name: raw.n,
+        phone: raw.p,
+        address: raw.a,
+        barrio: raw.b || '',
+        reference: raw.r || '',
+        notes: raw.no || '',
+        deliveryDate: raw.dd || '',
+        deliveryTime: raw.dt || '',
+        items: raw.i ? raw.i.split(',').map((s) => {
+          const [title, quantity, unitPrice] = s.split('|');
+          return { title, quantity: parseInt(quantity), unitPrice: parseInt(unitPrice) };
+        }) : [],
+        total: raw.t || 0,
+      };
+    } catch { return null; }
+  }
+
   function getOrderData() {
     const raw = sessionStorage.getItem('guayafood_order');
-    if (!raw) return null;
-    try { return JSON.parse(raw); } catch { return null; }
+    if (raw) {
+      try { return JSON.parse(raw); } catch { /* fall through */ }
+    }
+    return getDataFromUrl();
   }
 
   function clearOrderData() {

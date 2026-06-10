@@ -142,6 +142,25 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
+    const total = body.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const orderData = {
+      n: body.customer.name,
+      p: body.customer.phone,
+      a: body.customer.address,
+      b: body.customer.barrio || '',
+      r: body.reference || '',
+      no: body.notes || '',
+      dd: body.deliveryDate || '',
+      dt: body.deliveryTime || '',
+      i: body.items.map((i) => `${i.title}|${i.quantity}|${i.unitPrice}`).join(','),
+      t: total,
+    };
+    const encodedData = Buffer.from(JSON.stringify(orderData))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
     const payload = {
       items: [
         ...body.items.map((i) => ({
@@ -157,7 +176,7 @@ export const POST: APIRoute = async ({ request }) => {
         phone: { number: body.customer.phone },
       },
       back_urls: {
-        success: `${siteUrl}/?status=approved`,
+        success: `${siteUrl}/?status=approved&d=${encodedData}`,
         failure: `${siteUrl}/?status=failure`,
         pending: `${siteUrl}/?status=pending`,
       },

@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 import { getClientIp, checkRateLimit } from '../../lib/rate-limit';
+import { checkProcessed, markProcessed } from '../../lib/idempotency';
 
 export const prerender = false;
 
@@ -71,6 +72,13 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  if (checkProcessed(body.preferenceId)) {
+    return new Response(JSON.stringify({ ok: true, cached: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
     const auth = getAuth();
     const sheetId = getSheetId();
@@ -115,6 +123,7 @@ export const POST: APIRoute = async ({ request }) => {
         'Fecha de entrega': body.deliveryDate || '',
         Horario: body.deliveryTime || '',
       });
+      markProcessed(body.preferenceId);
     }
 
     return new Response(JSON.stringify({ ok: true }), {

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import crypto from 'node:crypto';
+import { checkProcessed, markProcessed } from '../../lib/idempotency';
 
 export const prerender = false;
 
@@ -101,8 +102,12 @@ export const POST: APIRoute = async ({ request }) => {
   const notificationAction = body?.action || '';
 
   if (notificationType === 'payment' && dataId) {
+    if (checkProcessed(dataId)) {
+      return new Response('OK', { status: 200 });
+    }
     const payment = await getPaymentDetails(dataId);
     if (payment && payment.status === 'approved') {
+      markProcessed(dataId);
       console.log(`Payment approved: ${dataId}, external_ref: ${payment.externalRef}`);
     }
   }
