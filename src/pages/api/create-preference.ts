@@ -1,5 +1,14 @@
 import type { APIRoute } from 'astro';
 import { getClientIp, checkRateLimit } from '../../lib/rate-limit';
+import { PRODUCTOS_SECTION, COMBOS_SECTION } from '../../lib/config';
+
+const PRICE_MAP = new Map<string, number>();
+for (const p of PRODUCTOS_SECTION.items) {
+  PRICE_MAP.set(p.name.toLowerCase().trim(), p.unitPrice);
+}
+for (const c of COMBOS_SECTION.items) {
+  PRICE_MAP.set(c.name.toLowerCase().trim(), c.unitPrice);
+}
 
 export const prerender = false;
 
@@ -70,6 +79,23 @@ export const POST: APIRoute = async ({ request }) => {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  for (const item of body.items) {
+    const key = item.title.toLowerCase().trim();
+    const expected = PRICE_MAP.get(key);
+    if (expected === undefined) {
+      return new Response(JSON.stringify({ error: `Producto no válido: ${item.title}` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (item.unitPrice !== expected) {
+      return new Response(JSON.stringify({ error: `Precio inválido para: ${item.title}` }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   const addr = body.customer.address.toLowerCase();
