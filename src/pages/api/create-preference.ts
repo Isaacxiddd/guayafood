@@ -137,10 +137,13 @@ export const POST: APIRoute = async ({ request }) => {
     });
     const total = resolvedItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
+    const phoneDigitsOnly = phoneDigits.slice(-8);
+    const areaCode = phoneDigits.slice(0, phoneDigits.length - 8);
+
     const payload = {
       items: [
-        ...resolvedItems.map((i) => ({
-          id: 'MP-ITEM',
+        ...resolvedItems.map((i, idx) => ({
+          id: `item-${idx}`,
           title: i.title,
           quantity: i.quantity,
           unit_price: i.unitPrice,
@@ -149,7 +152,7 @@ export const POST: APIRoute = async ({ request }) => {
       ],
       payer: {
         name: body.customer.name,
-        phone: { number: body.customer.phone },
+        phone: { area_code: areaCode, number: phoneDigitsOnly },
       },
       metadata: {
         customer_name: body.customer.name,
@@ -189,8 +192,9 @@ export const POST: APIRoute = async ({ request }) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('MP API error:', JSON.stringify(data));
-      return new Response(JSON.stringify({ error: 'Error al procesar el pago. Intentalo de nuevo.' }), {
+      const mpError = JSON.stringify(data);
+      console.error('MP API error:', mpError);
+      return new Response(JSON.stringify({ error: 'Error al procesar el pago. Intentalo de nuevo.', detail: mpError }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       });
