@@ -11,6 +11,7 @@ export const SITE = {
   location: 'Buenos Aires, Argentina',
   instagram: '@guayafoodba',
   instagramUrl: 'https://instagram.com/guayafoodba',
+  payerFallbackEmail: 'cliente@guayafood.com',
 };
 
 export const WHATSAPP = {

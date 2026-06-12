@@ -17,6 +17,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
 <div
   id="order-modal-overlay"
   class="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm hidden items-center justify-center p-4"
+  data-wa-number={WHATSAPP.number}
 >
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
     <div class="p-6">
@@ -60,7 +61,11 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
       <div class="space-y-3 mb-5">
         <div>
           <label class="block text-sm font-semibold text-texto mb-1">Tu nombre</label>
-          <input id="field-name" type="text" placeholder="Ej: Leidy" class="w-full px-4 py-2.5 rounded-xl border border-crema-dark focus:border-vinotinto focus:ring-1 focus:ring-vinotinto outline-none text-sm transition-colors bg-white" />
+          <input id="field-name" type="text" placeholder="Ej: Leidy García" class="w-full px-4 py-2.5 rounded-xl border border-crema-dark focus:border-vinotinto focus:ring-1 focus:ring-vinotinto outline-none text-sm transition-colors bg-white" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-texto mb-1">Email <span class="text-xs text-gray-400 font-normal">(opcional, mejora la aprobación del pago)</span></label>
+          <input id="field-email" type="email" placeholder="Ej: leidy@gmail.com" class="w-full px-4 py-2.5 rounded-xl border border-crema-dark focus:border-vinotinto focus:ring-1 focus:ring-vinotinto outline-none text-sm transition-colors bg-white" />
         </div>
         <div>
           <label class="block text-sm font-semibold text-texto mb-1">Teléfono</label>
@@ -185,6 +190,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
 </div>
 
 <script>
+  const waNumber = (document.getElementById('order-modal-overlay') as HTMLElement).dataset.waNumber!;
   const CHECK_API_URL = '/api/check-availability';
   const VALIDATE_ADDRESS_API = '/api/validate-address';
   const CREATE_ORDER_API = '/api/create-order';
@@ -204,6 +210,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
   const qtyValue = document.getElementById('qty-value');
   const modalSubtotal = document.getElementById('modal-subtotal');
   const fieldName = document.getElementById('field-name');
+  const fieldEmail = document.getElementById('field-email');
   const fieldPhone = document.getElementById('field-phone');
   const fieldAddress = document.getElementById('field-address');
   const fieldBarrio = document.getElementById('field-barrio');
@@ -594,12 +601,13 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
   btnWaOrder.addEventListener('click', () => {
     if (!validateForm()) return;
     const text = buildWaText();
-    const waUrl = `https://wa.me/5491123861180?text=${encodeURIComponent(text)}`;
+    const waUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`;
     window.open(waUrl, '_blank');
   });
 
   btnMpPay.addEventListener('click', async () => {
     const name = fieldName.value.trim();
+    const email = fieldEmail ? fieldEmail.value.trim() : '';
     const phone = fieldPhone.value.trim();
     const address = fieldAddress.value.trim();
     const barrio = fieldBarrio ? fieldBarrio.value : '';
@@ -626,7 +634,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
     const total = currentData.unitPrice * quantity;
 
     const order = {
-      name, phone, address, barrio, reference, notes,
+      name, email, phone, address, barrio, reference, notes,
       deliveryDate: date, deliveryTime: time,
       items: [{ productId: currentData.productId, quantity }],
       total,
@@ -640,7 +648,7 @@ const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: order.items,
-          customer: { name, phone, address, barrio },
+          customer: { name, email: email || undefined, phone, address, barrio },
           notes, deliveryDate: date, deliveryTime: time, reference,
         }),
       });

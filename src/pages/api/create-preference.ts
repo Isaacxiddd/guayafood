@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
+import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { getClientIp, checkRateLimit, checkOrigin } from '../../lib/rate-limit';
-import { PRODUCT_CATALOG } from '../../lib/config';
+import { PRODUCT_CATALOG, SITE } from '../../lib/config';
 import { validateCabaAddress } from '../../lib/address';
 
 export const prerender = false;
@@ -58,7 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   let body: {
     items: { productId: string; quantity: number }[];
-    customer: { name: string; phone: string; address: string; barrio?: string };
+    customer: { name: string; email?: string; phone: string; address: string; barrio?: string };
     notes?: string;
     deliveryDate?: string;
     deliveryTime?: string;
@@ -130,7 +131,9 @@ export const POST: APIRoute = async ({ request }) => {
     const resolvedItems = body.items.map((item) => {
       const product = PRODUCT_CATALOG.get(item.productId)!;
       return {
+        id: item.productId,
         title: product.name,
+        description: product.description || product.name,
         quantity: item.quantity,
         unitPrice: product.unitPrice,
       };
@@ -140,69 +143,56 @@ export const POST: APIRoute = async ({ request }) => {
     const phoneDigitsOnly = phoneDigits.slice(-8);
     const areaCode = phoneDigits.slice(0, phoneDigits.length - 8);
 
-    const payload = {
-      items: [
-        ...resolvedItems.map((i, idx) => ({
-          id: `item-${idx}`,
+    const nameParts = body.customer.name.trim().split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : nameParts[0];
+
+    const mp = new MercadoPagoConfig({ accessToken });
+    const preferenceClient = new Preference(mp);
+
+    const result = await preferenceClient.create({
+      body: {
+        items: resolvedItems.map((i) => ({
+          id: i.id,
           title: i.title,
+          description: i.description,
           quantity: i.quantity,
           unit_price: i.unitPrice,
           currency_id: 'ARS',
         })),
-      ],
-      payer: {
-        name: body.customer.name,
-        phone: { area_code: areaCode, number: phoneDigitsOnly },
+        payer: {
+          name: firstName,
+          surname: lastName,
+          email: body.customer.email || SITE.payerFallbackEmail,
+          phone: { area_code: areaCode, number: phoneDigitsOnly },
+        },
+        statement_descriptor: 'GUAYAFOOD',
+        metadata: {
+          customer_name: body.customer.name,
+          customer_phone: body.customer.phone,
+          customer_address: body.customer.address,
+          customer_barrio: body.customer.barrio || '',
+          customer_reference: body.reference || '',
+          notes: body.notes || '',
+          delivery_date: body.deliveryDate || '',
+          delivery_time: body.deliveryTime || '',
+          items: body.items.map((item) => `${item.productId}|${item.quantity}`).join(','),
+          total,
+        },
+        back_urls: {
+          success: `${siteUrl}/?status=approved`,
+          failure: `${siteUrl}/?status=failure`,
+          pending: `${siteUrl}/?status=pending`,
+        },
+        auto_return: 'approved',
+        notification_url: `${siteUrl}/api/mercadopago-webhook`,
+        external_reference: `order_${Date.now()}_${body.deliveryDate}_${body.deliveryTime}`,
       },
-      metadata: {
-        customer_name: body.customer.name,
-        customer_phone: body.customer.phone,
-        customer_address: body.customer.address,
-        customer_barrio: body.customer.barrio || '',
-        customer_reference: body.reference || '',
-        notes: body.notes || '',
-        delivery_date: body.deliveryDate || '',
-        delivery_time: body.deliveryTime || '',
-        items: body.items.map((item) => `${item.productId}|${item.quantity}`).join(','),
-        total,
-      },
-      back_urls: {
-        success: `${siteUrl}/?status=approved`,
-        failure: `${siteUrl}/?status=failure`,
-        pending: `${siteUrl}/?status=pending`,
-      },
-      auto_return: 'approved',
-      notification_url: `${siteUrl}/api/mercadopago-webhook`,
-      external_reference: `order_${Date.now()}_${body.deliveryDate}_${body.deliveryTime}`,
-    };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
     });
-    clearTimeout(timeoutId);
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const mpError = JSON.stringify(data);
-      console.error('MP API error:', mpError);
-      return new Response(JSON.stringify({ error: 'Error al procesar el pago. Intentalo de nuevo.', detail: mpError }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
 
     return new Response(JSON.stringify({
-      preference_id: data.id,
-      init_point: data.init_point,
+      preference_id: result.id,
+      init_point: result.init_point,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

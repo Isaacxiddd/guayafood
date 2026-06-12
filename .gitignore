@@ -3,11 +3,30 @@ dist/
 .vscode/
 *.log
 .DS_Store
+
+# Variables de entorno — nunca commitear
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development
+
+# Credenciales y secretos
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+credentials*.json
+secrets*.json
+
+# Build / cache
 *.tsbuildinfo
-playwright-report/
-test-results/
 .astro/
 .vercel/
+.cache/
+
+# Tests
+playwright-report/
+test-results/
