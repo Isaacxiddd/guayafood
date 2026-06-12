@@ -9,10 +9,12 @@ import Combos from '../components/Combos.astro';
 import Galeria from '../components/Galeria.astro';
 import ComoPedir from '../components/ComoPedir.astro';
 import Footer from '../components/Footer.astro';
+import OrderModal from '../components/OrderModal.astro';
 ---
 
 <Layout>
   <div id="payment-status" class="hidden" data-wa-number={WHATSAPP.number}></div>
+  <OrderModal productName="" productPrice="" unitPrice={0} />
   <Nav />
   <Hero />
   <Historia />

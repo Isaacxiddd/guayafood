@@ -1,12 +1,9 @@
 ---
 import { WHATSAPP, PRODUCTOS_SECTION } from '../lib/config';
 import PaymentButton from './PaymentButton.astro';
-import OrderModal from './OrderModal.astro';
 const waUrl = WHATSAPP.message(WHATSAPP.messages.productos);
 const { badge, title, description, items, extras } = PRODUCTOS_SECTION;
 ---
-
-<OrderModal productName="" productPrice="" unitPrice={0} />
 
 <section id="productos" class="py-20 md:py-28 px-4 bg-crema">
   <div class="max-w-6xl mx-auto">
