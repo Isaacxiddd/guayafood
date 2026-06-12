@@ -7,10 +7,14 @@ import { PRODUCT_CATALOG } from '../../lib/config';
 
 export const prerender = false;
 
-function sanitizeSheetValue(value: string): string {
-  if (typeof value !== 'string') return value;
-  if (/^[=+\-@]/.test(value)) return `'${value}`;
-  return value;
+function sanitizeSheetValue(value: unknown): string {
+  const str = typeof value === 'string' ? value : String(value ?? '');
+  // Strip null bytes and control characters (except normal whitespace)
+  const clean = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  // Strip leading whitespace before checking for formula characters (\t \r \n)
+  const trimmed = clean.trimStart();
+  if (/^[=+\-@|`]/.test(trimmed)) return `'${clean}`;
+  return clean;
 }
 
 function getAuth() {
